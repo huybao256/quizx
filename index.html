@@ -6762,23 +6762,25 @@
             const container = document.getElementById('my-folders-section');
             const lang = localStorage.getItem('currentLang') || 'vi';
             if (!container) return;
-
+        
             container.innerHTML = ''; // Clear old
-
+        
             if (folders.length === 0) {
                 container.innerHTML = `<div class="col-span-2 md:col-span-4 p-8 border-2 border-dashed border-theme rounded-2xl flex items-center justify-center text-gray-400 font-bold text-sm">${translations[lang]['no_folders']}</div>`;
                 return;
             }
-
+        
             folders.forEach(folder => {
                 const count = decks.filter(d => d.folderId === folder.id).length;
-                const html = `<div class="bg-card border border-theme rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center gap-5 group hover:border-amber-200" onclick="openHubFolder('${folder.id}'); switchTab('hub');">` +
+                // Đã sửa switchTab('hub') thành switchTab('study') ở dòng dưới đây
+                const html = `<div class="bg-card border border-theme rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center gap-5 group hover:border-amber-200" onclick="openHubFolder('${folder.id}'); switchTab('study');">` +
                     '<div class="w-14 h-14 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-100 transition-all border border-amber-100 shadow-inner"><i data-lucide="folder" size="24"></i></div>' +
                     '<div><h4 class="font-bold text-gray-800 text-lg group-hover:text-amber-600 transition-colors">' + folder.name + '</h4>' +
                     '<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">' + count + ' ' + (translations[lang]['sets_label'] || 'bộ thẻ') + '</p></div>' +
                     '</div>';
                 container.insertAdjacentHTML('beforeend', html);
             });
+            
             if (window.lucide) lucide.createIcons();
         }
 
@@ -6786,7 +6788,7 @@
 
         function getDecks() {
             const data = localStorage.getItem('quizx_decks');
-            return data ? JSON.parse(data) : [];
+            return data? JSON.parse(data) : [];
         }
 
         function saveDecks(decks) {
