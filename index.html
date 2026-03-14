@@ -2244,32 +2244,6 @@
                 </div>
             </div>
         </section>
-        <section id="document-editor" class="tab-content flex-col h-full bg-app relative overflow-y-auto">
-            <div class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-theme px-8 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <button onclick="switchTab('dashboard')" class="p-2 hover:bg-gray-100 rounded-xl transition-colors text-muted">
-                        <i data-lucide="arrow-left" size="20"></i>
-                    </button>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-black text-muted uppercase tracking-widest">Sổ tay ghi chú</span>
-                        <select id="doc-folder-select" class="bg-transparent text-xs font-bold text-indigo-600 outline-none cursor-pointer">
-                            <option value="">Không thuộc thư mục nào</option>
-                            </select>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="saveDocument()" class="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-md">
-                        <i data-lucide="save" size="16"></i> Lưu ghi chú
-                    </button>
-                </div>
-            </div>
-
-            <div class="flex-1 max-w-4xl mx-auto w-full px-8 py-12 md:py-20">
-                <input type="text" id="doc-title" placeholder="Tiêu đề trang..." class="w-full text-5xl font-black text-gray-800 bg-transparent border-none outline-none mb-8 placeholder:text-gray-300">
-                
-                <div id="doc-editorjs" class="prose max-w-none text-gray-700 text-lg font-medium leading-relaxed min-h-[500px]"></div>
-            </div>
-        </section>
     </main>
     <!-- Ghost Mode Exit Button -->
     <button id="ghost-mode-exit" onclick="exitGhostMode()">
@@ -2329,40 +2303,11 @@
             `;
 
             standalone.forEach(deck => {
-                const isDoc = deck.type === 'document';
                 const isQuiz = deck.type === 'quiz';
-
-                // Nếu là Document (Ghi chú)
-                if (isDoc) {
-                    const html = `
-                        <div class="bg-white border border-theme rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative" onclick="openDocument('${deck.id}')">
-                            <span class="absolute top-4 left-4 bg-cyan-100 text-cyan-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-cyan-200 z-10 shadow-sm">Sổ tay</span>
-                            
-                            <div class="absolute top-4 right-4 z-20">
-                                <button onclick="event.stopPropagation(); toggleDeckMenu('${deck.id}', event)" class="p-2 text-gray-400 hover:text-gray-700 bg-white shadow-sm border border-gray-100 rounded-xl transition-colors"><i data-lucide="more-vertical" size="18"></i></button>
-                                <div id="deck-menu-${deck.id}" class="deck-context-menu hidden absolute right-0 top-10 bg-card border border-theme rounded-2xl shadow-2xl z-[999] py-2 w-48 overflow-hidden">
-                                    <button onclick="event.stopPropagation(); deleteDeck('${deck.id}'); closeDeckMenus()" class="w-full text-left px-4 py-3 hover:bg-red-50 flex items-center gap-3 text-sm font-semibold text-red-500 transition-colors">
-                                        <i data-lucide="trash-2" size="16"></i> Xóa ghi chú
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="w-12 h-12 rounded-xl mt-8 bg-cyan-50 text-cyan-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
-                                <i data-lucide="book-open" size="24"></i>
-                            </div>
-                            <div class="min-w-0">
-                                 <h4 class="font-black text-gray-800 mb-1 group-hover:text-cyan-600 transition-colors truncate" title="${deck.title}">${deck.title}</h4>
-                                 <p class="text-[10px] font-black text-muted uppercase tracking-widest">Cập nhật: ${new Date(deck.createdAt).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                    `;
-                    container.insertAdjacentHTML('beforeend', html);
-                    return; // Chuyển sang phần tử tiếp theo
-                }
-
-                // NẾU LÀ FLASHCARD HOẶC QUIZ (Giữ nguyên như cũ)
-                const badgeHtml = isQuiz 
+                const badgeHtml = isQuiz
                     ? `<span class="absolute top-4 left-4 bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-blue-200 z-10 shadow-sm">MCQ / TF</span>`
                     : `<span class="absolute top-4 left-4 bg-pink-100 text-pink-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-pink-200 z-10 shadow-sm">Flashcard</span>`;
+
                 const isPublished = deck.isPublished ? 'text-emerald-500' : 'text-gray-400';
 
                 const html = `
@@ -2396,6 +2341,7 @@
                 `;
                 container.insertAdjacentHTML('beforeend', html);
             });
+            if (window.lucide) lucide.createIcons();
         }
         let editingDeckId = null;
         let isDirty = false;
@@ -2680,59 +2626,7 @@
                 setTimeout(() => toast.remove(), 400);
             }, 3000);
         }
-        // --- SMART INPUT: TỰ ĐỘNG TÁCH CÂU HỎI & ĐÁP ÁN ---
-        function handleSmartInput(textarea) {
-            const card = textarea.closest('.bg-card');
-            const typeSelect = card.querySelector('select').value;
-            const text = textarea.value;
 
-            if (typeSelect === 'multiple-choice') {
-                // Nhận diện dạng: Câu hỏi \n A. ... B. ... C. ... D. ...
-                const mcqRegex = /(.*?)(?:^|\n)\s*(?:A[.)]\s*)(.*?)(?:^|\n)\s*(?:B[.)]\s*)(.*?)(?:^|\n)\s*(?:C[.)]\s*)(.*?)(?:^|\n)\s*(?:D[.)]\s*)(.*)/is;
-                const match = text.match(mcqRegex);
-                
-                if (match) {
-                    const question = match[1].trim();
-                    const optA = match[2].trim();
-                    const optB = match[3].trim();
-                    const optC = match[4].trim();
-                    const optD = match[5].split('\n')[0].trim(); // Bỏ phần đuôi rác nếu có
-                    
-                    // Tìm đáp án đúng nếu có chữ "Đáp án: A"
-                    let answerLine = text.match(/Đáp án:\s*([A-D])/i) || text.match(/Correct:\s*([A-D])/i);
-                    let correctIdx = 0;
-                    if (answerLine) correctIdx = answerLine[1].toUpperCase().charCodeAt(0) - 65;
-
-                    textarea.value = question; 
-                    const optionsInput = card.querySelector('.options-input');
-                    if (optionsInput) {
-                        optionsInput.value = `${optA}\n${optB}\n${optC}\n${optD}`;
-                        optionsInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        
-                        setTimeout(() => {
-                            const radios = card.querySelectorAll('input[type="radio"]');
-                            if (radios[correctIdx]) radios[correctIdx].checked = true;
-                        }, 50);
-                    }
-                    showToast('✨ Đã tự động phân tách câu hỏi & đáp án!', 'success');
-                }
-            } else if (typeSelect === 'true-false') {
-                // Nhận diện dạng: a) b) c) d)
-                const tfRegex = /(.*?)(?:^|\n)\s*(?:a[.)]\s*)(.*?)(?:^|\n)\s*(?:b[.)]\s*)(.*?)(?:^|\n)\s*(?:c[.)]\s*)(.*?)(?:^|\n)\s*(?:d[.)]\s*)(.*)/is;
-                const match = text.match(tfRegex);
-                if (match) {
-                     textarea.value = match[1].trim();
-                     const inputs = card.querySelectorAll('.tf-statement-input');
-                     if(inputs.length >= 4) {
-                         inputs[0].value = match[2].trim();
-                         inputs[1].value = match[3].trim();
-                         inputs[2].value = match[4].trim();
-                         inputs[3].value = match[5].split('\n')[0].trim();
-                     }
-                     showToast('✨ Đã tự động phân tách 4 ý Đúng/Sai!', 'success');
-                }
-            }
-        }
         // --- GLOBAL SEARCH (COMMAND PALETTE) ---
         function openSearch() {
             const modal = document.getElementById('search-modal');
@@ -2751,45 +2645,32 @@
         function handleGlobalSearch(query) {
             const results = document.getElementById('search-results');
             if (!query.trim()) {
-                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Nhập tên hoặc Mã Code 6 số để tìm bộ thẻ...</p></div>';
+                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Type something to start searching...</p></div>';
                 return;
             }
 
             const decks = getDecks();
             const folders = getFolders();
-            const q = query.trim().toLowerCase();
-            let html = '';
+            const q = query.toLowerCase();
 
-            // 1. TÌM KIẾM MÃ CODE (TỪ DATABASE CỘNG ĐỒNG)
-            if (q.length === 6 && window.globalPublicDecks) {
-                const publicDeck = window.globalPublicDecks.find(d => d.shareCode && d.shareCode.toLowerCase() === q);
-                if (publicDeck) {
-                    html += `
-                        <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl mb-4">
-                            <p class="text-xs font-black text-indigo-500 uppercase tracking-widest mb-2">Đã tìm thấy mã Code: ${publicDeck.shareCode}</p>
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <p class="font-bold text-gray-800">${publicDeck.title}</p>
-                                    <p class="text-[10px] text-gray-500">Tác giả: @${publicDeck.author || 'ẩn danh'} • ${publicDeck.numTerms} thẻ</p>
-                                </div>
-                                <button onclick="clonePublicDeckByCode('${publicDeck.shareCode}')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">Lưu Bộ Thẻ</button>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
-            // 2. TÌM KIẾM CÁ NHÂN (LOCAL)
             const filteredDecks = decks.filter(d => d.title.toLowerCase().includes(q));
             const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(q));
 
+            if (filteredDecks.length === 0 && filteredFolders.length === 0) {
+                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">No results found for "' + query + '"</p></div>';
+                return;
+            }
+
+            let html = '';
             filteredDecks.forEach(d => {
                 html += `
                     <div onclick="openStudyMode('${d.id}'); closeSearch();" class="p-3 rounded-xl flex items-center gap-3 hover:bg-app cursor-pointer transition-colors group">
-                        <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center"><i data-lucide="file-text" size="16"></i></div>
+                        <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+                            <i data-lucide="file-text" size="16"></i>
+                        </div>
                         <div class="flex-1">
                             <p class="font-bold text-sm group-hover:text-accent transition-colors">${d.title}</p>
-                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Mã Code: ${d.shareCode || 'Chưa có'} • ${d.numTerms} terms</p>
+                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Deck • ${d.numTerms} terms</p>
                         </div>
                         <i data-lucide="chevron-right" size="14" class="text-muted opacity-0 group-hover:opacity-100 transition-all"></i>
                     </div>
@@ -2799,43 +2680,20 @@
             filteredFolders.forEach(f => {
                 html += `
                     <div onclick="switchTab('dashboard'); closeSearch();" class="p-3 rounded-xl flex items-center gap-3 hover:bg-app cursor-pointer transition-colors group">
-                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center"><i data-lucide="folder" size="16"></i></div>
-                        <div class="flex-1"><p class="font-bold text-sm group-hover:text-orange-600 transition-colors">${f.name}</p><p class="text-[10px] font-bold text-muted uppercase tracking-wider">Folder</p></div>
+                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                            <i data-lucide="folder" size="16"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-sm group-hover:text-orange-600 transition-colors">${f.name}</p>
+                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Folder</p>
+                        </div>
                         <i data-lucide="chevron-right" size="14" class="text-muted opacity-0 group-hover:opacity-100 transition-all"></i>
                     </div>
                 `;
             });
 
-            if (!html) html = `<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Không tìm thấy kết quả cho "${query}"</p></div>`;
-            
             results.innerHTML = html;
-            if (window.lucide) lucide.createIcons();
-        }
-
-        // HÀM XỬ LÝ LƯU (CLONE) BỘ THẺ
-        function clonePublicDeckByCode(code) {
-            if (!window.globalPublicDecks) return;
-            const pubDeck = window.globalPublicDecks.find(d => d.shareCode === code);
-            if (!pubDeck) return;
-
-            const decks = getDecks();
-            
-            // Xóa meta data cũ để cấp thành bộ thẻ của người dùng hiện tại
-            const newDeck = JSON.parse(JSON.stringify(pubDeck));
-            newDeck.id = Date.now().toString(); 
-            newDeck.shareCode = Math.random().toString(36).substring(2, 8).toUpperCase(); 
-            newDeck.folderId = null; // Đưa ra ngoài màn hình chính
-            newDeck.title = newDeck.title + ' (Clone)';
-            newDeck.isPublished = false; // Tắt public
-            newDeck.author = localStorage.getItem('currentUser')?.split('@')[0] || 'Me';
-
-            decks.push(newDeck);
-            saveDecks(decks); // Lưu sẽ tự đẩy lên Firebase phần cá nhân
-            
-            closeSearch();
-            switchTab('dashboard');
-            showToast(`Đã tải về máy bộ thẻ "${pubDeck.title}" thành công!`, 'success');
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            lucide.createIcons();
         }
 
         // --- DASHBOARD OVERHAUL: GOAL, COUNTDOWN, WEEKLY STATS ---
@@ -3308,10 +3166,6 @@
                                 <button onclick="event.stopPropagation(); renameFolder('${folder.id}'); closeDeckMenus()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-sm font-semibold transition-colors">
                                     <i data-lucide="edit-3" size="16" class="text-amber-500"></i> ${translations[lang]['rename']}
                                 </button>
-                                <button onclick="event.stopPropagation(); publishFolder('${folder.id}'); closeDeckMenus()" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-sm font-semibold transition-colors">
-                                    <i data-lucide="globe" size="16" class="${folder.isPublished ? 'text-emerald-500' : 'text-gray-400'}"></i> Công khai
-                                </button>
-                                <div class="h-px bg-gray-100 my-1"></div>
                                 <button onclick="event.stopPropagation(); deleteFolder('${folder.id}'); closeDeckMenus()" class="w-full text-left px-4 py-3 hover:bg-red-50 flex items-center gap-3 text-sm font-semibold text-red-500 transition-colors">
                                     <i data-lucide="trash-2" size="16"></i> ${translations[lang]['delete']}
                                 </button>
@@ -6478,7 +6332,7 @@
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
                             <i data-lucide="help-circle" size="12"></i> QUESTION
                         </label>
-                        <textarea oninput="handleSmartInput(this)" class="w-full bg-transparent border-b-2 border-gray-100 pb-3 min-h-[140px] outline-none focus:border-indigo-500 resize-none text-xl font-bold transition-all placeholder:text-gray-200 text-editor-box" placeholder="Dán nội dung câu hỏi và đáp án vào đây...">${cached1}</textarea>
+                        <textarea class="w-full bg-transparent border-b-2 border-gray-100 pb-3 min-h-[140px] outline-none focus:border-indigo-500 resize-none text-xl font-bold transition-all placeholder:text-gray-200 text-editor-box" placeholder="Enter question...">${cached1}</textarea>
                     </div>
                     <div class="group/input md:pl-4">
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
@@ -6550,7 +6404,7 @@
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
                             <i data-lucide="align-left" size="12"></i> CÂU HỎI CHÍNH / NGỮ CẢNH
                         </label>
-                        <textarea oninput="handleSmartInput(this)" class="w-full bg-transparent border-2 border-gray-100 rounded-xl p-3 min-h-[80px] outline-none focus:border-indigo-500 resize-none text-lg font-bold transition-all placeholder:text-gray-300" placeholder="Dán nội dung đoạn văn hoặc câu hỏi vào đây...">${cached1}</textarea>
+                        <textarea class="w-full bg-transparent border-2 border-gray-100 rounded-xl p-3 min-h-[80px] outline-none focus:border-indigo-500 resize-none text-lg font-bold transition-all placeholder:text-gray-300" placeholder="Nhập đoạn văn hoặc câu hỏi chính...">${cached1}</textarea>
                     </div>
                     
                     <div class="col-span-1 md:col-span-2">
@@ -6761,94 +6615,6 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        function ensureDefaultData() {
-            const decks = getDecks();
-            const folders = getFolders();
-
-            // [YÊU CẦU 1]: Nếu chưa có folders, tạo mặc định
-            if (folders.length === 0) {
-                const folderId = 'folder_ktpl_' + Date.now();
-                const deckId = 'deck_b12_' + Date.now();
-
-                const defaultFolder = {
-                    id: folderId,
-                    name: 'Kinh Tế Pháp Luật',
-                    createdAt: new Date().toISOString()
-                };
-
-                const defaultDeck = {
-                    id: deckId,
-                    folderId: folderId,
-                    title: 'Bài 12: Quyền Tôn giáo',
-                    description: 'Hệ thống câu hỏi trắc nghiệm Quyền bình đẳng giữa các dân tộc, tôn giáo.',
-                    type: 'quiz',
-                    createdAt: new Date().toISOString(),
-                    cards: [
-                        { id: 'c1', type: 'multiple-choice', question: 'Quyền bình đẳng giữa các dân tộc được hiểu là các dân tộc cùng sinh sống trên lãnh thổ Việt Nam được Nhà nước và pháp luật', correctIndex: 1, answer: 'B', options: ['A. hợp nhất.', 'B. bảo vệ.', 'C. phân lập.', 'D. hoán đổi.'] },
-                        { id: 'c2', type: 'multiple-choice', question: 'Các dân tộc cùng sinh sống trên lãnh thổ Việt Nam được Nhà nước và pháp luật tôn trọng, bảo vệ và tạo điều kiện phát triển - đó là nội dung của quyền nào dưới đây?', correctIndex: 1, answer: 'B', options: ['A. Quyền tự do về tín ngưỡng, tôn giáo.', 'B. Quyền bình đẳng giữa các dân tộc.', 'C. Quyền bình đẳng giữa các tôn giáo.', 'D. Quyền bất khả xâm phạm về thân thể.'] },
-                        { id: 'c3', type: 'multiple-choice', question: 'Trong trường hợp anh H (Phó chủ tịch huyện) and anh T (trúng cử HĐND xã) cùng được hưởng bình đẳng giữa các dân tộc về lĩnh vực chính trị thông qua quyền nào?', correctIndex: 3, answer: 'D', options: ['A. Thay đổi các chính sách xã hội.', 'B. Thay đổi cơ cấu ngành kinh tế', 'C. Tham gia sửa đổi Luật đất đai.', 'D. Tham gia vào bộ máy nhà nước.'] },
-                        { id: 'c4', type: 'multiple-choice', question: 'Trong trường hợp anh V (phát biểu về dự án) and chị P (đề xuất giải pháp) cùng thực hiện quyền bình đẳng giữa các dân tộc ở phương diện nào?', correctIndex: 1, answer: 'B', options: ['A. Kinh tế.', 'B. Chính trị.', 'C. Văn hóa, đối ngoại.', 'D. Quốc phòng, an ninh.'] },
-                        { id: 'c5', type: 'multiple-choice', question: 'Biểu hiện nào dưới đây cho thấy các dân tộc sinh sống trên đất nước Việt Nam đều bình đẳng về chính trị?', correctIndex: 1, answer: 'B', options: ['A. Các dân tộc bình đẳng trong tiếp cận các cơ hội học tập.', 'B. Các dân tộc đều có quyền and nghĩa vụ bảo vệ Tổ quốc.', 'C. Các dân tộc có quyền tham gia vào các thành phần kinh tế.', 'D. Các dân tộc được giữ gìn, phát huy phong tục, tập quán.'] },
-                        { id: 'c6', type: 'multiple-choice', question: 'Tất cả các dân tộc có quyền làm chủ đất nước; tham gia thảo luận, góp ý các vấn đề chung - đó là bình đẳng trên phương diện nào?', correctIndex: 0, answer: 'A', options: ['A. Chính trị.', 'B. Kinh tế.', 'C. Văn hóa.', 'D. Giáo dục.'] },
-                        { id: 'c7', type: 'multiple-choice', question: 'Theo quy định của pháp luật, các dân tộc không phân biệt đa số hay thiểu số đều được Nhà nước:', correctIndex: 3, answer: 'D', options: ['A. ấn định một nơi cư trú.', 'B. cho phép sở hữu đất đai.', 'C. áp đặt mức thu nhập.', 'D. đầu tư phát triển kinh tế.'] },
-                        { id: 'c8', type: 'multiple-choice', question: 'Trường hợp anh A được hỗ trợ phục dựng trò chơi dân gian, anh B được vay vốn phát triển công ty thể hiện bình đẳng về:', correctIndex: 1, answer: 'B', options: ['A. Chính trị.', 'B. Kinh tế.', 'C. Văn hóa.', 'D. Tín ngưỡng.'] },
-                        { id: 'c9', type: 'multiple-choice', question: 'Tất cả các dân tộc có quyền tham gia vào các thành phần kinh tế; được tạo cơ hội phát triển - đó là bình đẳng trên phương diện nào?', correctIndex: 1, answer: 'B', options: ['A. Chính trị.', 'B. Kinh tế.', 'C. Văn hóa.', 'D. Tín ngưỡng.'] },
-                        { id: 'c10', type: 'multiple-choice', question: 'Biểu hiện nào dưới đây cho thấy các dân tộc sinh sống trên đất nước Việt Nam đều bình đẳng về kinh tế?', correctIndex: 1, answer: 'B', options: ['A. Chính sách có sự phân biệt dân tộc.', 'B. Nhà nước đầu tư phát triển kinh tế vùng đồng bào dân tộc thiểu số.', 'C. Chỉ dân tộc đa số được tham gia kinh tế.', 'D. Nhà nước chỉ đầu tư vùng phát triển.'] },
-                        { id: 'c11', type: 'multiple-choice', question: 'Giám đốc P từ chối hồ sơ của anh Q vì lí do anh là người dân tộc thiểu số. Ai đã vi phạm quyền bình đẳng kinh tế?', correctIndex: 1, answer: 'B', options: ['A. Anh Q.', 'B. Anh P.', 'C. Chị M and anh P.', 'D. Anh P and anh Q.'] },
-                        { id: 'c12', type: 'multiple-choice', question: 'Hành vi nào thực hiện đúng quyền bình đẳng giữa các dân tộc về lĩnh vực văn hóa?', correctIndex: 0, answer: 'A', options: ['A. Lưu truyền tranh dân gian.', 'B. Theo dõi gia tăng dân số.', 'C. Bài trừ tự do tín ngưỡng.', 'D. Phát hành mọi văn hóa phẩm.'] },
-                        { id: 'c13', type: 'multiple-choice', question: 'Việc cho phép sử dụng tiếng nói, chữ viết riêng của mình bảo đảm quyền bình đẳng ở phương diện nào?', correctIndex: 3, answer: 'D', options: ['A. An ninh.', 'B. Chính trị.', 'C. Quốc phòng.', 'D. Văn hóa.'] },
-                        { id: 'c14', type: 'multiple-choice', question: 'Chính sách ưu tiên cho người dân tộc thiểu số vào học đại học thể hiện quyền bình đẳng về:', correctIndex: 3, answer: 'D', options: ['A. văn hoá.', 'B. chính trị.', 'C. an ninh.', 'D. giáo dục.'] },
-                        { id: 'c15', type: 'multiple-choice', question: 'Nội dung nào sau đây KHÔNG phải là biểu hiện cho thấy sự bình đẳng về văn hóa?', correctIndex: 2, answer: 'C', options: ['A. Phát huy bản sắc văn hóa.', 'B. Dùng tiếng nói, chữ viết riêng.', 'C. Có cơ hội học tập bình đẳng (Giáo dục).', 'D. Giữ gìn phong tục, tập quán.'] },
-                        { id: 'c16', type: 'multiple-choice', question: 'Anh V and chị A xung phong nhận công tác tại vùng sâu vùng xa để phát triển giáo dục. Ai thực hiện tốt quy định pháp luật?', correctIndex: 0, answer: 'A', options: ['A. Anh V and chị A.', 'B. Chị A and người thân.', 'C. Anh V and người thân.', 'D. Người thân của anh V, chị A.'] },
-                        { id: 'c17', type: 'multiple-choice', question: 'Việc cộng điểm ưu tiên cho học sinh dân tộc thiểu số là nhằm mục đích gì?', correctIndex: 1, answer: 'B', options: ['A. Gây mất bình đẳng.', 'B. Rút ngắn khoảng cách chênh lệch trình độ phát triển giữa các vùng.', 'C. Ưu ái riêng cho các bạn đó.', 'D. Thay đổi quy chế thi.'] },
-                        { id: 'c18', type: 'multiple-choice', question: 'Công dân vi phạm quyền bình đẳng giữa các dân tộc khi thực hiện hành vi nào?', correctIndex: 2, answer: 'C', options: ['A. Bảo tồn văn hóa.', 'B. Sinh hoạt cộng đồng.', 'C. Chia rẽ khối đại đoàn kết.', 'D. Bác bỏ quan điểm trái chiều.'] },
-                        { id: 'c19', type: 'multiple-choice', question: 'Thực hiện tốt quyền bình đẳng giữa các dân tộc mang lại ý nghĩa sau, NGOẠI TRỪ:', correctIndex: 2, answer: 'C', options: ['A. Tạo cơ hội phát triển.', 'B. Củng cố khối đại đoàn kết.', 'C. Gia tăng chênh lệch trình độ.', 'D. Phát huy nguồn lực dân tộc.'] },
-                        { id: 'c20', type: 'multiple-choice', question: 'Các tôn giáo được Nhà nước công nhận đều bình đẳng trong quyền, nghĩa vụ and trách nhiệm pháp lí là khái niệm:', correctIndex: 1, answer: 'B', options: ['A. Bình đẳng dân tộc.', 'B. Bình đẳng tôn giáo.', 'C. Tự do tín ngưỡng.', 'D. Bình đẳng công dân.'] },
-
-                        { id: 'c21', type: 'multiple-choice', question: 'Quyền tự do, tín ngưỡng tôn giáo của mọi người được Nhà nước:', correctIndex: 0, answer: 'A', options: ['A. tôn trọng and bảo hộ.', 'B. phân biệt đối xử.', 'C. chỉ định.', 'D. áp đặt.'] },
-                        { id: 'c22', type: 'multiple-choice', question: 'Nội dung nào là biểu hiện bình đẳng về QUYỀN giữa các tôn giáo?', correctIndex: 2, answer: 'C', options: ['A. Phân biệt người có/không đạo.', 'B. Cấm sở hữu tài sản.', 'C. Nơi thờ tự được pháp luật bảo hộ.', 'D. Bắt buộc phải theo tôn giáo.'] },
-                        { id: 'c23', type: 'multiple-choice', question: 'Tại xã B, các tôn giáo được quyền xuất bản kinh sách, sản xuất đồ dùng tôn giáo. Điều này thể hiện:', correctIndex: 2, answer: 'C', options: ['A. Sự phân biệt đối xử.', 'B. Xung đột tôn giáo.', 'C. Bình đẳng trong hoạt động.', 'D. Mâu thuẫn tín đồ.'] },
-                        { id: 'c24', type: 'multiple-choice', question: 'Nghĩa vụ tuân thủ Hiến pháp and pháp luật của các tổ chức tôn giáo thể hiện bình đẳng về:', correctIndex: 1, answer: 'B', options: ['A. quyền.', 'B. nghĩa vụ.', 'C. giáo lí.', 'D. trách nhiệm pháp lí.'] },
-                        { id: 'c25', type: 'multiple-choice', question: 'Việc các tôn giáo cùng thực hiện sinh hoạt trực tuyến để phòng chống dịch bệnh thể hiện bình đẳng về:', correctIndex: 0, answer: 'A', options: ['A. Nghĩa vụ tuân thủ pháp luật.', 'B. Chỉ tuân theo giáo luật.', 'C. Cấm hoạt động tôn giáo.', 'D. Phân biệt đối xử.'] },
-                        { id: 'c26', type: 'multiple-choice', question: 'Tổ chức hoặc cá nhân theo tôn giáo nếu vi phạm pháp luật thì:', correctIndex: 1, answer: 'B', options: ['A. Được phủ nhận lời khai.', 'B. Bị xử lí theo quy định.', 'C. Mất mọi tài sản.', 'D. Phải lao động công ích.'] },
-                        { id: 'c27', type: 'multiple-choice', question: 'Cả cơ sở tôn giáo T and N cùng bị xử phạt vì lén lút tụ tập thời dịch. Điều này thể hiện:', correctIndex: 0, answer: 'A', options: ['A. Bình đẳng về trách nhiệm pháp lí.', 'B. Cấm tôn giáo hoạt động.', 'C. Phân biệt đối xử.', 'D. Không bị xử lí.'] },
-                        { id: 'c28', type: 'multiple-choice', question: 'Nội dung nào KHÔNG phản ánh đúng ý nghĩa của bình đẳng giữa các tôn giáo?', correctIndex: 3, answer: 'D', options: ['A. Thể hiện khối đại đoàn kết.', 'B. Củng cố đoàn kết dân tộc.', 'C. Huy động nguồn lực.', 'D. Nhân tố DUY NHẤT ổn định chính trị.'] },
-                        { id: 'c29', type: 'multiple-choice', question: 'Trước hành vi vi phạm quyền bình đẳng tôn giáo, chúng ta cần:', correctIndex: 2, answer: 'C', options: ['A. học tập.', 'B. cổ vũ.', 'C. lên án, ngăn chặn.', 'D. thờ ơ.'] },
-                        { id: 'c30', type: 'multiple-choice', question: 'Bố mẹ A phản đối A cưới B vì không cùng tôn giáo. Ai KHÔNG vi phạm pháp luật?', correctIndex: 3, answer: 'D', options: ['A. Anh A and bố mẹ.', 'B. Bố mẹ A and anh T (cán bộ).', 'C. Bố mẹ A and chị B.', 'D. Anh T, anh A and chị B.'] },
-
-                        { id: 'v1', type: 'multiple-choice', question: 'Pháp luật về quyền bình đẳng giữa các dân tộc là:', correctIndex: 0, answer: 'A', options: ['A. Bình đẳng về quyền and nghĩa vụ trong mọi lĩnh vực.', 'B. Bình đẳng về lợi ích/ngân sách.', 'C. Bình đẳng đất đai.', 'D. Bình đẳng giáo dục.'] },
-                        { id: 'v2', type: 'multiple-choice', question: 'Các lĩnh vực bình đẳng giữa các dân tộc bao gồm:', correctIndex: 3, answer: 'D', options: ['A. Chính trị', 'B. Kinh tế', 'C. Văn hóa', 'D. Cả 3 đáp án trên'] },
-                        { id: 'v3', type: 'multiple-choice', question: 'Về chính trị, các dân tộc bình đẳng ở chỗ:', correctIndex: 0, answer: 'A', options: ['A. Được làm chủ đất nước, tham gia bộ máy nhà nước.', 'B. Cung cấp cơ hội kinh tế.', 'C. Giữ gìn văn hóa.', 'D. Cả 3 đáp án trên'] },
-                        { id: 'v4', type: 'multiple-choice', question: 'Về kinh tế, bình đẳng giữa các dân tộc thể hiện ở:', correctIndex: 1, answer: 'B', options: ['A. Tham gia bộ máy nhà nước.', 'B. Được cung cấp cơ hội and điều kiện phát triển kinh tế.', 'C. Thể hiện văn hóa.', 'D. Cả 3 đáp án trên'] },
-                        { id: 'v5', type: 'multiple-choice', question: 'Về văn hóa and giáo dục, các dân tộc bình đẳng ở chỗ:', correctIndex: 2, answer: 'C', options: ['A. Tham gia bộ máy nhà nước.', 'B. Phát triển kinh tế.', 'C. Giữ gìn bản sắc and bình đẳng trong giáo dục.', 'D. Cả 3 đáp án trên'] },
-                        { id: 'v6', type: 'multiple-choice', question: 'Trách nhiệm của mỗi dân tộc là:', correctIndex: 3, answer: 'D', options: ['A. Tôn trọng dân tộc khác.', 'B. Giúp đỡ nhau phát triển.', 'C. Xây dựng khối đại đoàn kết.', 'D. Cả 3 đáp án trên.'] },
-                        { id: 'v7', type: 'multiple-choice', question: 'Hành vi nào mỗi dân tộc KHÔNG nên có?', correctIndex: 3, answer: 'D', options: ['A. Kỳ thị, chia rẽ dân tộc.', 'B. Xâm phạm quyền bình đẳng.', 'C. Xây dựng đoàn kết.', 'D. A and B đúng.'] },
-                        { id: 'v8', type: 'multiple-choice', question: 'Ý nghĩa của quyền bình đẳng giữa các dân tộc là:', correctIndex: 3, answer: 'D', options: ['A. Tăng cường khối đại đoàn kết.', 'B. Thu hẹp khoảng cách vùng miền.', 'C. Thêm tiền ủng hộ.', 'D. A and B đúng.'] },
-                        { id: 'v9', type: 'multiple-choice', question: 'Quyền bình đẳng giữa các tôn giáo trước pháp luật được hiểu là:', correctIndex: 3, answer: 'D', options: ['A. Bình đẳng về quyền and nghĩa vụ pháp lý.', 'B. Có/Không có đạo đều tôn trọng nhau.', 'C. Hoạt động and sở hữu tài sản hợp pháp.', 'D. Cả 3 đáp án trên.'] },
-                        { id: 'v10', type: 'multiple-choice', question: 'Nhà nước đối với quyền bình đẳng tôn giáo:', correctIndex: 3, answer: 'D', options: ['A. Tôn trọng, bảo hộ tự do tín ngưỡng.', 'B. Đối xử bình đẳng giữa các tôn giáo.', 'C. Nghiêm cấm lợi dụng tôn giáo phá hoại đoàn kết.', 'D. Cả 3 đáp án trên.'] },
-                        { id: 'v11', type: 'multiple-choice', question: 'Ý nghĩa của quyền bình đẳng giữa các tôn giáo:', correctIndex: 3, answer: 'D', options: ['A. Thúc đẩy lòng yêu nước, tinh thần đoàn kết.', 'B. Cơ sở xây dựng and bảo vệ Tổ quốc.', 'C. Đưa người vùng cao xuống đồng bằng.', 'D. A and B đúng.'] }
-                    ]
-                };
-
-                folders.push(defaultFolder);
-                decks.push(defaultDeck);
-
-                // Save locally
-                localStorage.setItem('quizx_folders', JSON.stringify(folders));
-                localStorage.setItem('quizx_decks', JSON.stringify(decks));
-
-                // Sync to Firebase if logged in
-                const email = localStorage.getItem('currentUser');
-                if (email && window.firebaseDB) {
-                    window.fbSet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email) + '/folders'), folders);
-                    window.fbSet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email) + '/decks'), decks);
-                }
-
-                refreshAllFolderUIs();
-                refreshAllSetUIs();
-            }
-        }
-
         function getDecks() {
             const data = localStorage.getItem('quizx_decks');
             return data ? JSON.parse(data) : [];
@@ -6858,15 +6624,7 @@
             localStorage.setItem('quizx_decks', JSON.stringify(decks));
             const email = localStorage.getItem('currentUser');
             if (email && window.firebaseDB) {
-                // Lưu cá nhân
                 window.fbSet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email) + '/decks'), decks);
-                
-                // Đồng bộ lên Chợ Cộng Đồng
-                decks.forEach(d => {
-                    if(d.isPublished && d.shareCode) {
-                        window.fbSet(window.fbRef(window.firebaseDB, 'public_decks/' + d.shareCode), d);
-                    }
-                });
             }
             refreshAllSetUIs();
         }
@@ -6978,20 +6736,18 @@
                     decks[idx].updatedAt = new Date().toISOString();
                 }
                 editingDeckId = null;
-           } else {
+            } else {
                 const newDeck = {
                     id: Date.now().toString(),
-                    shareCode: Math.random().toString(36).substring(2, 8).toUpperCase(), // MÃ CODE 6 CHỮ SỐ
-                    isPublished: true, // Mặc định cho phép chia sẻ
-                    author: localStorage.getItem('currentUser')?.split('@')[0] || 'Ẩn danh',
                     title, description, folderId,
-                    type: deckType,
+                    type: deckType, // Save type
                     cards,
                     numTerms: cards.length,
                     createdAt: new Date().toISOString()
                 };
                 decks.push(newDeck);
             }
+
             saveDecks(decks);
             showToast('Lưu bộ thẻ thành công!', 'success');
 
@@ -7165,26 +6921,7 @@
                 }
                 updateDashboardStats();
                 renderActivityCalendar();
-                updateDashboardStats();
-                renderActivityCalendar();
 
-                // Lắng nghe dữ liệu Cộng đồng (Real-time)
-                window.fbOnValue(window.fbRef(window.firebaseDB, 'public_decks'), (snap) => {
-                    if(snap.exists()) {
-                        window.globalPublicDecks = Object.values(snap.val());
-                        if(typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
-                    } else {
-                        window.globalPublicDecks = [];
-                    }
-                });
-                window.fbOnValue(window.fbRef(window.firebaseDB, 'public_folders'), (snap) => {
-                    if(snap.exists()) {
-                        window.globalPublicFolders = Object.values(snap.val());
-                        if(typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
-                    } else {
-                        window.globalPublicFolders = [];
-                    }
-                });
                 // After fetching, if still empty, ensure defaults
                 ensureDefaultData();
 
@@ -7194,62 +6931,7 @@
                 console.error("Firebase fetch error", e);
             }
         }
-        function renderPublicMarketplace() {
-            const grid = document.getElementById('public-decks-grid');
-            if (!grid) return;
-            grid.innerHTML = '';
-            let hasItems = false;
 
-            // Render Public Folders
-            if (window.globalPublicFolders && window.globalPublicFolders.length > 0) {
-                hasItems = true;
-                window.globalPublicFolders.forEach(folder => {
-                    grid.innerHTML += `
-                        <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between">
-                            <div>
-                                <div class="flex justify-between items-start mb-4">
-                                    <span class="bg-amber-100 text-amber-600 text-[10px] font-black px-2 py-1 rounded uppercase border border-amber-200"><i data-lucide="folder" size="10" class="inline"></i> FOLDER: ${folder.shareCode}</span>
-                                    <span class="text-xs text-gray-500 font-bold"><i data-lucide="user" size="12" class="inline"></i> ${folder.author || 'Anonymous'}</span>
-                                </div>
-                                <h4 class="font-black text-gray-800 mb-2">${folder.name}</h4>
-                                <p class="text-xs text-muted mb-4">${folder.bundledDecks ? folder.bundledDecks.length : 0} bộ thẻ bên trong</p>
-                            </div>
-                            <button onclick="clonePublicFolderByCode('${folder.shareCode}')" class="w-full py-2 bg-amber-200 text-amber-700 rounded-xl text-sm font-bold hover:bg-amber-500 hover:text-white transition-colors">
-                                Lưu Thư Mục
-                            </button>
-                        </div>
-                    `;
-                });
-            }
-
-            // Render Public Decks (Standalone)
-            if (window.globalPublicDecks && window.globalPublicDecks.length > 0) {
-                hasItems = true;
-                window.globalPublicDecks.forEach(deck => {
-                    grid.innerHTML += `
-                        <div class="bg-card border border-theme rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between">
-                            <div>
-                                <div class="flex justify-between items-start mb-4">
-                                    <span class="bg-indigo-100 text-indigo-600 text-[10px] font-black px-2 py-1 rounded uppercase">Code: ${deck.shareCode}</span>
-                                    <span class="text-xs text-gray-500 font-bold"><i data-lucide="user" size="12" class="inline"></i> ${deck.author || 'Anonymous'}</span>
-                                </div>
-                                <h4 class="font-black text-gray-800 mb-2">${deck.title}</h4>
-                                <p class="text-xs text-muted mb-4">${deck.numTerms} thuật ngữ</p>
-                            </div>
-                            <button onclick="clonePublicDeckByCode('${deck.shareCode}')" class="w-full py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-600 hover:text-white transition-colors">
-                                Lưu Bộ Thẻ
-                            </button>
-                        </div>
-                    `;
-                });
-            }
-
-            if (!hasItems) {
-                grid.innerHTML = '<div class="col-span-full py-12 text-center text-muted italic">Chưa có bộ thẻ nào trên cộng đồng.</div>';
-            }
-            
-            if (window.lucide) lucide.createIcons();
-        }
         // --- MOCK CHAT & SOCIAL FUNCTIONS ---
 
         function toggleChatWidget() {
@@ -7445,47 +7127,17 @@
         }
 
         function handleLogin() {
-            const emailInput = document.getElementById('login-email');
-            const passInput = document.getElementById('login-password');
-            const email = emailInput.value.trim();
-            const pass = passInput.value;
-            const remember = document.querySelector('input[type="checkbox"]').checked;
-            
+            const email = document.getElementById('login-email').value;
             if (!email) return;
 
-            // Xử lý Remember Me
-            if (remember) {
-                localStorage.setItem('quizx_saved_email', email);
-                localStorage.setItem('quizx_saved_pass', pass);
-            } else {
-                localStorage.removeItem('quizx_saved_email');
-                localStorage.removeItem('quizx_saved_pass');
-            }
-
+            // Save to localStorage
             localStorage.setItem('currentUser', email);
 
-            // Tự động tạo Profile mặc định nếu chưa có
-            let profile = JSON.parse(localStorage.getItem('quizx_user_profile') || 'null');
-            if (!profile || !profile.fullname) {
-                const defaultName = email.split('@')[0];
-                profile = { 
-                    fullname: defaultName, 
-                    username: defaultName, 
-                    nickname: defaultName, 
-                    avatar: null 
-                };
-                localStorage.setItem('quizx_user_profile', JSON.stringify(profile));
-                if(window.firebaseDB) {
-                    window.fbSet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email) + '/profile'), profile);
-                }
-            }
-
-            // Cập nhật UI Avatar
-            updateAvatarVisuals(profile.avatar, profile.fullname);
-            const nameEl = document.getElementById('display-name');
-            if (nameEl) nameEl.innerText = profile.fullname;
-
+            // Fetch Firebase Data
             fetchFirebaseData();
+
+            // Update UI
+            document.getElementById('user-initials').innerText = email.charAt(0).toUpperCase();
 
             // Hide Login Overlay, Show App
             const overlay = document.getElementById('login-overlay');
@@ -7494,7 +7146,9 @@
             overlay.classList.add('opacity-0');
             setTimeout(() => {
                 overlay.classList.add('hidden');
+
                 app.classList.remove('hidden');
+                // trigger reflow
                 void app.offsetWidth;
                 app.classList.remove('opacity-0');
             }, 300);
@@ -8430,14 +8084,6 @@
 
         // Initialize App
         window.addEventListener('DOMContentLoaded', () => {
-            // Auto-fill form đăng nhập nếu đã lưu
-            const savedEmail = localStorage.getItem('quizx_saved_email');
-            const savedPass = localStorage.getItem('quizx_saved_pass');
-            if (savedEmail) {
-                document.getElementById('login-email').value = savedEmail;
-                document.getElementById('login-password').value = savedPass;
-                document.querySelector('input[type="checkbox"]').checked = true;
-            }
             const firstOptionsInput = document.querySelector('.options-input');
             if (firstOptionsInput) {
                 firstOptionsInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8611,188 +8257,7 @@
                     if (typeof closeFolderMenus === 'function') closeFolderMenus();
                 }
         });
-        // ==========================================
-        // TÍNH NĂNG DOCUMENT (NOTION STYLE)
-        // ==========================================
-        let docEditorInstance = null;
-        let currentEditingDocId = null;
 
-        function populateDocFolderSelect() {
-            const select = document.getElementById('doc-folder-select');
-            if (!select) return;
-            const folders = getFolders();
-            select.innerHTML = `<option value="">Không thuộc thư mục nào</option>`;
-            folders.forEach(f => {
-                select.insertAdjacentHTML('beforeend', `<option value="${f.id}">${f.name}</option>`);
-            });
-        }
-
-        // Mở màn hình tạo Document mới
-        function createNewDocument(folderId = '') {
-            currentEditingDocId = 'doc_' + Date.now();
-            document.getElementById('doc-title').value = '';
-            
-            populateDocFolderSelect();
-            if(folderId) document.getElementById('doc-folder-select').value = folderId;
-
-            initDocEditor({});
-            switchTab('document-editor');
-        }
-
-        // Khởi tạo EditorJS
-        function initDocEditor(data) {
-            if (docEditorInstance) {
-                docEditorInstance.destroy();
-                docEditorInstance = null;
-            }
-            document.getElementById('doc-editorjs').innerHTML = ''; // Clear old content
-
-            docEditorInstance = new EditorJS({
-                holder: 'doc-editorjs',
-                placeholder: 'Bắt đầu viết nội dung bài học...',
-                data: data,
-                tools: {
-                    header: { class: Header, shortcut: 'CMD+SHIFT+H', config: { levels: [1, 2, 3, 4], defaultLevel: 2 } },
-                    list: { class: List, inlineToolbar: true },
-                    checklist: { class: Checklist, inlineToolbar: true },
-                }
-            });
-        }
-
-        // Lưu Document
-        async function saveDocument() {
-            if (!docEditorInstance) return;
-            try {
-                const outputData = await docEditorInstance.save();
-                const title = document.getElementById('doc-title').value.trim() || 'Ghi chú không tên';
-                const folderId = document.getElementById('doc-folder-select').value;
-                const decks = getDecks();
-                
-                const existingIdx = decks.findIndex(d => d.id === currentEditingDocId);
-
-                if (existingIdx !== -1) {
-                    // Update
-                    decks[existingIdx].title = title;
-                    decks[existingIdx].folderId = folderId;
-                    decks[existingIdx].pageData = outputData;
-                    decks[existingIdx].updatedAt = new Date().toISOString();
-                } else {
-                    // Create New
-                    const newDoc = {
-                        id: currentEditingDocId,
-                        type: 'document', // Đánh dấu đây là file Ghi chú, không phải Flashcard
-                        shareCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-                        isPublished: false,
-                        title: title,
-                        folderId: folderId,
-                        pageData: outputData,
-                        createdAt: new Date().toISOString(),
-                        author: localStorage.getItem('currentUser')?.split('@')[0] || 'Me'
-                    };
-                    decks.push(newDoc);
-                }
-
-                saveDecks(decks);
-                showToast('Đã lưu sổ tay ghi chú thành công!', 'success');
-            } catch (error) {
-                console.error('Saving failed: ', error);
-                showToast('Có lỗi xảy ra khi lưu!', 'error');
-            }
-        }
-
-        // Mở Document đã có để xem/sửa
-        function openDocument(docId) {
-            const decks = getDecks();
-            const doc = decks.find(d => d.id === docId);
-            if(!doc) return;
-
-            currentEditingDocId = doc.id;
-            document.getElementById('doc-title').value = doc.title;
-            
-            populateDocFolderSelect();
-            document.getElementById('doc-folder-select').value = doc.folderId || '';
-
-            initDocEditor(doc.pageData || {});
-            switchTab('document-editor');
-        }
-        // ==========================================
-        // TÍNH NĂNG PUBLISH & CLONE (REAL-TIME DB)
-        // ==========================================
-
-        function publishFolder(folderId) {
-            let folders = getFolders();
-            let decks = getDecks();
-            const folderIdx = folders.findIndex(f => f.id === folderId);
-            
-            if (folderIdx !== -1) {
-                folders[folderIdx].isPublished = true;
-                if (!folders[folderIdx].shareCode) {
-                    folders[folderIdx].shareCode = 'F_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-                }
-                
-                // Lấy tên tác giả từ Profile
-                const profile = JSON.parse(localStorage.getItem('quizx_user_profile') || '{}');
-                folders[folderIdx].author = profile.fullname || localStorage.getItem('currentUser')?.split('@')[0] || 'Ẩn danh';
-                
-                saveFolders(folders); 
-                
-                // Gói tất cả các thẻ trong thư mục này lại
-                const folderDecks = decks.filter(d => d.folderId === folderId);
-                const publicFolderData = {
-                    ...folders[folderIdx],
-                    bundledDecks: folderDecks 
-                };
-
-                if (window.firebaseDB) {
-                    window.fbSet(window.fbRef(window.firebaseDB, 'public_folders/' + folders[folderIdx].shareCode), publicFolderData);
-                }
-                
-                showToast(`Đã đưa Thư mục lên Chợ Cộng đồng! Mã: ${folders[folderIdx].shareCode}`, 'success');
-                renderHubFolders(); // Refresh UI để hiện icon xanh
-            }
-        }
-
-        function clonePublicFolderByCode(code) {
-            if (!window.globalPublicFolders) return;
-            const pubFolder = window.globalPublicFolders.find(f => f.shareCode === code);
-            if (!pubFolder) return;
-
-            let folders = getFolders();
-            let decks = getDecks();
-
-            // 1. Tạo Folder mới ở Local
-            const newFolder = JSON.parse(JSON.stringify(pubFolder));
-            const newFolderId = 'folder_' + Date.now().toString();
-            newFolder.id = newFolderId;
-            newFolder.shareCode = null; 
-            newFolder.isPublished = false;
-            newFolder.name = newFolder.name + ' (Clone)';
-            
-            // Xóa cục bundle trước khi lưu vào personal folder db
-            const bundledDecks = newFolder.bundledDecks || [];
-            delete newFolder.bundledDecks; 
-            folders.push(newFolder);
-
-            // 2. Tạo các Set mới từ Bundle gắn vào Folder mới
-            if (bundledDecks.length > 0) {
-                bundledDecks.forEach((deck, i) => {
-                    const newDeck = JSON.parse(JSON.stringify(deck));
-                    newDeck.id = Date.now().toString() + '_' + i;
-                    newDeck.folderId = newFolderId; // Link tới folder vừa tạo
-                    newDeck.shareCode = null;
-                    newDeck.isPublished = false;
-                    decks.push(newDeck);
-                });
-            }
-
-            saveFolders(folders);
-            saveDecks(decks);
-
-            closeSearch();
-            switchTab('dashboard');
-            showToast(`Đã lưu toàn bộ thư mục "${pubFolder.name}" thành công!`, 'success');
-            confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-        }
     </script>
     <!-- Confirm Delete Modal -->
     <div id="modal-confirm-delete"
@@ -8902,7 +8367,7 @@
         <div
             class="bg-card w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-theme transform transition-all animate-in zoom-in duration-300">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-black text-gray-800" data-i18n="create_new">Tạo note mới</h3>
+                <h3 class="text-2xl font-black text-gray-800" data-i18n="create_new">TẠO MỚI</h3>
                 <button onclick="closeModal('modal-create-hub')"
                     class="text-muted hover:text-red-500 transition-colors"><i data-lucide="x" size="24"></i></button>
             </div>
@@ -9009,11 +8474,10 @@
             <!-- Friend Connect Header -->
             <div class="p-3 border-b border-theme bg-gray-50 flex gap-2">
                 <input type="text" id="friend-search-input" placeholder="Tìm bạn bè (@username)..."
-                    class="flex-1 bg-white border border-theme rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-all"
-                    onkeypress="if(event.key === 'Enter') searchAndAddFriendChat()">
-                <button onclick="searchAndAddFriendChat()"
+                    class="flex-1 bg-white border border-theme rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-all">
+                <button onclick="searchAndAddFriend()"
                     class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"><i
-                        data-lucide="search" size="16"></i></button>
+                        data-lucide="user-plus" size="16"></i></button>
             </div>
             <div id="friend-list-view" class="flex-1 overflow-y-auto p-2 custom-scrollbar">
                 <div class="p-3 mb-2 flex items-center gap-3 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors"
@@ -9368,135 +8832,6 @@
                 bỏ</button>
         </div>
     </div>
-    <div id="modal-public-profile" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[300] backdrop-blur-sm transition-all" onclick="if(event.target===this) closeModal('modal-public-profile')">
-        <div class="bg-card rounded-[2.5rem] p-8 max-w-2xl w-full mx-4 shadow-2xl border border-theme overflow-hidden relative transform transition-all animate-in zoom-in duration-300 flex flex-col max-h-[85vh]">
-            <div class="flex items-start justify-between mb-8 shrink-0">
-                <div class="flex items-center gap-5">
-                    <div id="public-profile-avatar" class="w-20 h-20 rounded-full bg-indigo-100 text-indigo-500 border-4 border-white shadow-lg flex items-center justify-center text-3xl font-black bg-cover bg-center overflow-hidden">
-                        U
-                    </div>
-                    <div>
-                        <h2 id="public-profile-name" class="text-2xl font-black text-gray-800">User Name</h2>
-                        <p id="public-profile-username" class="text-muted font-medium">@username</p>
-                        <div class="flex items-center gap-2 mt-2">
-                            <button id="btn-public-add-friend" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2">
-                                <i data-lucide="user-plus" size="14"></i> Kết bạn
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="closeModal('modal-public-profile')" class="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all text-gray-500"><i data-lucide="x" size="20"></i></button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <h3 class="text-sm font-black text-muted uppercase tracking-widest mb-4">Các bộ thẻ đang chia sẻ</h3>
-                <div id="public-profile-decks" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="col-span-full py-8 text-center text-gray-400 text-sm">Đang tải...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // --- LOGIC XEM PROFILE VÀ KẾT BẠN ---
-        async function viewUserProfile(encodedEmail) {
-            if (!window.firebaseDB) return;
-            closeSearch();
-            openModal('modal-public-profile');
-            
-            const nameEl = document.getElementById('public-profile-name');
-            const usernameEl = document.getElementById('public-profile-username');
-            const avatarEl = document.getElementById('public-profile-avatar');
-            const decksContainer = document.getElementById('public-profile-decks');
-            const btnAdd = document.getElementById('btn-public-add-friend');
-
-            nameEl.innerText = "Đang tải...";
-            usernameEl.innerText = "";
-            decksContainer.innerHTML = '<div class="col-span-full py-8 text-center text-gray-400 text-sm">Đang tải...</div>';
-
-            try {
-                // Lấy thông tin user
-                const userSnap = await window.fbGet(window.fbRef(window.firebaseDB, 'users/' + encodedEmail));
-                if(userSnap.exists()) {
-                    const data = userSnap.val();
-                    const profile = data.profile || {};
-                    
-                    const username = profile.username || encodedEmail.replace(/,/g, '.').split('@')[0];
-                    const fullname = profile.fullname || username;
-
-                    nameEl.innerText = fullname;
-                    usernameEl.innerText = "@" + username;
-                    
-                    if (profile.avatar) {
-                        avatarEl.style.backgroundImage = `url(${profile.avatar})`;
-                        avatarEl.innerText = '';
-                    } else {
-                        avatarEl.style.backgroundImage = 'none';
-                        avatarEl.innerText = username.charAt(0).toUpperCase();
-                    }
-
-                    btnAdd.onclick = (e) => sendFriendRequest(encodedEmail, e);
-
-                    // Lọc các bộ thẻ họ đang để Public
-                    let publicDecksHtml = '';
-                    if (data.decks && Array.isArray(data.decks)) {
-                        const pDecks = data.decks.filter(d => d.isPublished);
-                        if (pDecks.length === 0) {
-                            publicDecksHtml = '<div class="col-span-full py-8 text-center text-gray-400 text-sm italic">Người dùng này chưa chia sẻ bộ thẻ nào.</div>';
-                        } else {
-                            pDecks.forEach(d => {
-                                publicDecksHtml += `
-                                    <div class="bg-gray-50 border border-theme rounded-2xl p-4 flex flex-col justify-between group hover:border-indigo-300 transition-colors">
-                                        <div>
-                                            <p class="font-bold text-gray-800 mb-1 truncate" title="${d.title}">${d.title}</p>
-                                            <p class="text-[10px] text-muted font-black uppercase tracking-widest mb-4">${d.numTerms} thẻ • Mã: ${d.shareCode}</p>
-                                        </div>
-                                        <button onclick="clonePublicDeckByCode('${d.shareCode}')" class="w-full py-2 bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors">
-                                            Lưu về máy
-                                        </button>
-                                    </div>
-                                `;
-                            });
-                        }
-                    } else {
-                        publicDecksHtml = '<div class="col-span-full py-8 text-center text-gray-400 text-sm italic">Người dùng này chưa chia sẻ bộ thẻ nào.</div>';
-                    }
-                    decksContainer.innerHTML = publicDecksHtml;
-                }
-            } catch(e) {
-                console.error(e);
-                nameEl.innerText = "Lỗi tải dữ liệu";
-            }
-            if(window.lucide) lucide.createIcons();
-        }
-
-        function sendFriendRequest(encodedEmail, event) {
-            if(event) event.stopPropagation();
-            // Trong thực tế sẽ đẩy lên node 'friend_requests' trên Firebase
-            showToast('Đã gửi lời mời kết bạn!', 'success');
-            
-            // Đổi state nút
-            const btn = event.target.closest('button');
-            if(btn) {
-                btn.innerHTML = '<i data-lucide="check" size="14"></i> Đã gửi';
-                btn.classList.replace('bg-indigo-600', 'bg-emerald-500');
-                btn.classList.replace('hover:bg-indigo-700', 'hover:bg-emerald-600');
-                btn.disabled = true;
-                if(window.lucide) lucide.createIcons();
-            }
-        }
-        
-        // Gắn lại hàm search trong Modal Chat cho đồng bộ
-        function searchAndAddFriendChat() {
-            const input = document.getElementById('friend-search-input');
-            const q = input ? input.value.trim() : '';
-            if (!q) return;
-            openSearch();
-            document.getElementById('global-search-input').value = q;
-            handleGlobalSearch(q);
-            toggleChatWidget(); // Ẩn chat để xem kết quả search
-        }
-    </script>
 
     </body>
 
