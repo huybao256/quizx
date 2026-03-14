@@ -7114,47 +7114,63 @@
 
         // --- AUTHENTICATION & INITIALIZATION ---
         // Initialize Activity (once per session check)
-        async function fetchFirebaseData() {
+       async function fetchFirebaseData() {
             const email = localStorage.getItem('currentUser');
             if (!email || !window.firebaseDB) return;
             try {
                 const snapshot = await window.fbGet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email)));
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    if (data.decks) localStorage.setItem('quizx_decks', JSON.stringify(data.decks));
-                    if (data.folders) localStorage.setItem('quizx_folders', JSON.stringify(data.folders));
-                    if (data.activity) localStorage.setItem('quizx_activity', JSON.stringify(data.activity));
+                    
+                    // CHỈ GHI ĐÈ LOCAL NẾU FIREBASE THỰC SỰ CÓ DỮ LIỆU BỘ THẺ/THƯ MỤC
+                    // Tránh trường hợp Firebase chưa kịp đồng bộ tải về ghi đè mảng rỗng
+                    if (data.decks && Array.isArray(data.decks) && data.decks.length > 0) {
+                        localStorage.setItem('quizx_decks', JSON.stringify(data.decks));
+                    }
+                    if (data.folders && Array.isArray(data.folders) && data.folders.length > 0) {
+                        localStorage.setItem('quizx_folders', JSON.stringify(data.folders));
+                    }
+                    if (data.activity) {
+                        localStorage.setItem('quizx_activity', JSON.stringify(data.activity));
+                    }
 
                     // Update user initials if email exists
                     if (email) document.getElementById('user-initials').innerText = email.charAt(0).toUpperCase();
                 }
-                updateDashboardStats();
-                renderActivityCalendar();
+                
                 updateDashboardStats();
                 renderActivityCalendar();
 
-                // Lắng nghe dữ liệu Cộng đồng (Real-time)
-                window.fbOnValue(window.fbRef(window.firebaseDB, 'public_decks'), (snap) => {
-                    if (snap.exists()) {
-                        window.globalPublicDecks = Object.values(snap.val());
-                        if (typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
-                    } else {
-                        window.globalPublicDecks = [];
-                    }
-                });
-                window.fbOnValue(window.fbRef(window.firebaseDB, 'public_folders'), (snap) => {
-                    if (snap.exists()) {
-                        window.globalPublicFolders = Object.values(snap.val());
-                        if (typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
-                    } else {
-                        window.globalPublicFolders = [];
-                    }
-                });
+                // Đảm bảo chỉ gán Listener 1 lần duy nhất để tránh tràn bộ nhớ
+                if (!window.publicDecksListenerAttached) {
+                    window.fbOnValue(window.fbRef(window.firebaseDB, 'public_decks'), (snap) => {
+                        if (snap.exists()) {
+                            window.globalPublicDecks = Object.values(snap.val());
+                            if (typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
+                        } else {
+                            window.globalPublicDecks = [];
+                        }
+                    });
+                    
+                    window.fbOnValue(window.fbRef(window.firebaseDB, 'public_folders'), (snap) => {
+                        if (snap.exists()) {
+                            window.globalPublicFolders = Object.values(snap.val());
+                            if (typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
+                        } else {
+                            window.globalPublicFolders = [];
+                        }
+                    });
+                    window.publicDecksListenerAttached = true; // Flag chống lặp
+                }
+
                 // After fetching, if still empty, ensure defaults
-                ensureDefaultData();
+                if (getFolders().length === 0) {
+                    ensureDefaultData();
+                }
 
                 loadFoldersToDashboard();
                 loadStudyGroups();
+                refreshAllSetUIs(); // Cập nhật lại UI sau khi tải xong
             } catch (e) {
                 console.error("Firebase fetch error", e);
             }
