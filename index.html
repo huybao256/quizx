@@ -2626,7 +2626,59 @@
                 setTimeout(() => toast.remove(), 400);
             }, 3000);
         }
+        // --- SMART INPUT: TỰ ĐỘNG TÁCH CÂU HỎI & ĐÁP ÁN ---
+        function handleSmartInput(textarea) {
+            const card = textarea.closest('.bg-card');
+            const typeSelect = card.querySelector('select').value;
+            const text = textarea.value;
 
+            if (typeSelect === 'multiple-choice') {
+                // Nhận diện dạng: Câu hỏi \n A. ... B. ... C. ... D. ...
+                const mcqRegex = /(.*?)(?:^|\n)\s*(?:A[.)]\s*)(.*?)(?:^|\n)\s*(?:B[.)]\s*)(.*?)(?:^|\n)\s*(?:C[.)]\s*)(.*?)(?:^|\n)\s*(?:D[.)]\s*)(.*)/is;
+                const match = text.match(mcqRegex);
+                
+                if (match) {
+                    const question = match[1].trim();
+                    const optA = match[2].trim();
+                    const optB = match[3].trim();
+                    const optC = match[4].trim();
+                    const optD = match[5].split('\n')[0].trim(); // Bỏ phần đuôi rác nếu có
+                    
+                    // Tìm đáp án đúng nếu có chữ "Đáp án: A"
+                    let answerLine = text.match(/Đáp án:\s*([A-D])/i) || text.match(/Correct:\s*([A-D])/i);
+                    let correctIdx = 0;
+                    if (answerLine) correctIdx = answerLine[1].toUpperCase().charCodeAt(0) - 65;
+
+                    textarea.value = question; 
+                    const optionsInput = card.querySelector('.options-input');
+                    if (optionsInput) {
+                        optionsInput.value = `${optA}\n${optB}\n${optC}\n${optD}`;
+                        optionsInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        
+                        setTimeout(() => {
+                            const radios = card.querySelectorAll('input[type="radio"]');
+                            if (radios[correctIdx]) radios[correctIdx].checked = true;
+                        }, 50);
+                    }
+                    showToast('✨ Đã tự động phân tách câu hỏi & đáp án!', 'success');
+                }
+            } else if (typeSelect === 'true-false') {
+                // Nhận diện dạng: a) b) c) d)
+                const tfRegex = /(.*?)(?:^|\n)\s*(?:a[.)]\s*)(.*?)(?:^|\n)\s*(?:b[.)]\s*)(.*?)(?:^|\n)\s*(?:c[.)]\s*)(.*?)(?:^|\n)\s*(?:d[.)]\s*)(.*)/is;
+                const match = text.match(tfRegex);
+                if (match) {
+                     textarea.value = match[1].trim();
+                     const inputs = card.querySelectorAll('.tf-statement-input');
+                     if(inputs.length >= 4) {
+                         inputs[0].value = match[2].trim();
+                         inputs[1].value = match[3].trim();
+                         inputs[2].value = match[4].trim();
+                         inputs[3].value = match[5].split('\n')[0].trim();
+                     }
+                     showToast('✨ Đã tự động phân tách 4 ý Đúng/Sai!', 'success');
+                }
+            }
+        }
         // --- GLOBAL SEARCH (COMMAND PALETTE) ---
         function openSearch() {
             const modal = document.getElementById('search-modal');
@@ -2645,32 +2697,45 @@
         function handleGlobalSearch(query) {
             const results = document.getElementById('search-results');
             if (!query.trim()) {
-                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Type something to start searching...</p></div>';
+                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Nhập tên hoặc Mã Code 6 số để tìm bộ thẻ...</p></div>';
                 return;
             }
 
             const decks = getDecks();
             const folders = getFolders();
-            const q = query.toLowerCase();
+            const q = query.trim().toLowerCase();
+            let html = '';
 
+            // 1. TÌM KIẾM MÃ CODE (TỪ DATABASE CỘNG ĐỒNG)
+            if (q.length === 6 && window.globalPublicDecks) {
+                const publicDeck = window.globalPublicDecks.find(d => d.shareCode && d.shareCode.toLowerCase() === q);
+                if (publicDeck) {
+                    html += `
+                        <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl mb-4">
+                            <p class="text-xs font-black text-indigo-500 uppercase tracking-widest mb-2">Đã tìm thấy mã Code: ${publicDeck.shareCode}</p>
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-gray-800">${publicDeck.title}</p>
+                                    <p class="text-[10px] text-gray-500">Tác giả: @${publicDeck.author || 'ẩn danh'} • ${publicDeck.numTerms} thẻ</p>
+                                </div>
+                                <button onclick="clonePublicDeckByCode('${publicDeck.shareCode}')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">Lưu Bộ Thẻ</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // 2. TÌM KIẾM CÁ NHÂN (LOCAL)
             const filteredDecks = decks.filter(d => d.title.toLowerCase().includes(q));
             const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(q));
 
-            if (filteredDecks.length === 0 && filteredFolders.length === 0) {
-                results.innerHTML = '<div class="p-8 text-center text-muted"><p class="text-sm font-medium">No results found for "' + query + '"</p></div>';
-                return;
-            }
-
-            let html = '';
             filteredDecks.forEach(d => {
                 html += `
                     <div onclick="openStudyMode('${d.id}'); closeSearch();" class="p-3 rounded-xl flex items-center gap-3 hover:bg-app cursor-pointer transition-colors group">
-                        <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
-                            <i data-lucide="file-text" size="16"></i>
-                        </div>
+                        <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center"><i data-lucide="file-text" size="16"></i></div>
                         <div class="flex-1">
                             <p class="font-bold text-sm group-hover:text-accent transition-colors">${d.title}</p>
-                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Deck • ${d.numTerms} terms</p>
+                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Mã Code: ${d.shareCode || 'Chưa có'} • ${d.numTerms} terms</p>
                         </div>
                         <i data-lucide="chevron-right" size="14" class="text-muted opacity-0 group-hover:opacity-100 transition-all"></i>
                     </div>
@@ -2680,20 +2745,43 @@
             filteredFolders.forEach(f => {
                 html += `
                     <div onclick="switchTab('dashboard'); closeSearch();" class="p-3 rounded-xl flex items-center gap-3 hover:bg-app cursor-pointer transition-colors group">
-                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                            <i data-lucide="folder" size="16"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-bold text-sm group-hover:text-orange-600 transition-colors">${f.name}</p>
-                            <p class="text-[10px] font-bold text-muted uppercase tracking-wider">Folder</p>
-                        </div>
+                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center"><i data-lucide="folder" size="16"></i></div>
+                        <div class="flex-1"><p class="font-bold text-sm group-hover:text-orange-600 transition-colors">${f.name}</p><p class="text-[10px] font-bold text-muted uppercase tracking-wider">Folder</p></div>
                         <i data-lucide="chevron-right" size="14" class="text-muted opacity-0 group-hover:opacity-100 transition-all"></i>
                     </div>
                 `;
             });
 
+            if (!html) html = `<div class="p-8 text-center text-muted"><p class="text-sm font-medium">Không tìm thấy kết quả cho "${query}"</p></div>`;
+            
             results.innerHTML = html;
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // HÀM XỬ LÝ LƯU (CLONE) BỘ THẺ
+        function clonePublicDeckByCode(code) {
+            if (!window.globalPublicDecks) return;
+            const pubDeck = window.globalPublicDecks.find(d => d.shareCode === code);
+            if (!pubDeck) return;
+
+            const decks = getDecks();
+            
+            // Xóa meta data cũ để cấp thành bộ thẻ của người dùng hiện tại
+            const newDeck = JSON.parse(JSON.stringify(pubDeck));
+            newDeck.id = Date.now().toString(); 
+            newDeck.shareCode = Math.random().toString(36).substring(2, 8).toUpperCase(); 
+            newDeck.folderId = null; // Đưa ra ngoài màn hình chính
+            newDeck.title = newDeck.title + ' (Clone)';
+            newDeck.isPublished = false; // Tắt public
+            newDeck.author = localStorage.getItem('currentUser')?.split('@')[0] || 'Me';
+
+            decks.push(newDeck);
+            saveDecks(decks); // Lưu sẽ tự đẩy lên Firebase phần cá nhân
+            
+            closeSearch();
+            switchTab('dashboard');
+            showToast(`Đã tải về máy bộ thẻ "${pubDeck.title}" thành công!`, 'success');
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         }
 
         // --- DASHBOARD OVERHAUL: GOAL, COUNTDOWN, WEEKLY STATS ---
@@ -6332,7 +6420,7 @@
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
                             <i data-lucide="help-circle" size="12"></i> QUESTION
                         </label>
-                        <textarea class="w-full bg-transparent border-b-2 border-gray-100 pb-3 min-h-[140px] outline-none focus:border-indigo-500 resize-none text-xl font-bold transition-all placeholder:text-gray-200 text-editor-box" placeholder="Enter question...">${cached1}</textarea>
+                        <textarea oninput="handleSmartInput(this)" class="w-full bg-transparent border-b-2 border-gray-100 pb-3 min-h-[140px] outline-none focus:border-indigo-500 resize-none text-xl font-bold transition-all placeholder:text-gray-200 text-editor-box" placeholder="Dán nội dung câu hỏi và đáp án vào đây...">${cached1}</textarea>
                     </div>
                     <div class="group/input md:pl-4">
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
@@ -6404,7 +6492,7 @@
                         <label class="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest group-focus-within/input:text-indigo-500 transition-colors flex items-center gap-2">
                             <i data-lucide="align-left" size="12"></i> CÂU HỎI CHÍNH / NGỮ CẢNH
                         </label>
-                        <textarea class="w-full bg-transparent border-2 border-gray-100 rounded-xl p-3 min-h-[80px] outline-none focus:border-indigo-500 resize-none text-lg font-bold transition-all placeholder:text-gray-300" placeholder="Nhập đoạn văn hoặc câu hỏi chính...">${cached1}</textarea>
+                        <textarea oninput="handleSmartInput(this)" class="w-full bg-transparent border-2 border-gray-100 rounded-xl p-3 min-h-[80px] outline-none focus:border-indigo-500 resize-none text-lg font-bold transition-all placeholder:text-gray-300" placeholder="Dán nội dung đoạn văn hoặc câu hỏi vào đây...">${cached1}</textarea>
                     </div>
                     
                     <div class="col-span-1 md:col-span-2">
@@ -6712,7 +6800,15 @@
             localStorage.setItem('quizx_decks', JSON.stringify(decks));
             const email = localStorage.getItem('currentUser');
             if (email && window.firebaseDB) {
+                // Lưu cá nhân
                 window.fbSet(window.fbRef(window.firebaseDB, 'users/' + encodeUserEmail(email) + '/decks'), decks);
+                
+                // Đồng bộ lên Chợ Cộng Đồng
+                decks.forEach(d => {
+                    if(d.isPublished && d.shareCode) {
+                        window.fbSet(window.fbRef(window.firebaseDB, 'public_decks/' + d.shareCode), d);
+                    }
+                });
             }
             refreshAllSetUIs();
         }
@@ -6824,18 +6920,20 @@
                     decks[idx].updatedAt = new Date().toISOString();
                 }
                 editingDeckId = null;
-            } else {
+           } else {
                 const newDeck = {
                     id: Date.now().toString(),
+                    shareCode: Math.random().toString(36).substring(2, 8).toUpperCase(), // MÃ CODE 6 CHỮ SỐ
+                    isPublished: true, // Mặc định cho phép chia sẻ
+                    author: localStorage.getItem('currentUser')?.split('@')[0] || 'Ẩn danh',
                     title, description, folderId,
-                    type: deckType, // Save type
+                    type: deckType,
                     cards,
                     numTerms: cards.length,
                     createdAt: new Date().toISOString()
                 };
                 decks.push(newDeck);
             }
-
             saveDecks(decks);
             showToast('Lưu bộ thẻ thành công!', 'success');
 
@@ -7009,6 +7107,18 @@
                 }
                 updateDashboardStats();
                 renderActivityCalendar();
+                updateDashboardStats();
+                renderActivityCalendar();
+
+                // Lắng nghe dữ liệu Cộng đồng (Real-time)
+                window.fbOnValue(window.fbRef(window.firebaseDB, 'public_decks'), (snap) => {
+                    if(snap.exists()) {
+                        window.globalPublicDecks = Object.values(snap.val());
+                        if(typeof renderPublicMarketplace === 'function') renderPublicMarketplace();
+                    } else {
+                        window.globalPublicDecks = [];
+                    }
+                });
 
                 // After fetching, if still empty, ensure defaults
                 ensureDefaultData();
